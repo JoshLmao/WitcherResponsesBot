@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WitcherResponsesBot.Models;
 
-namespace WitcherResponsesBot
+namespace WitcherResponsesBot.Services
 {
     class GamepediaResponsesParser
     {
@@ -21,10 +21,16 @@ namespace WitcherResponsesBot
             category = category.Replace(" ", "_");
             string pageUrl = $"{Constants.BASE_URL}/{API_URL}{category}";
 
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(pageUrl);
+            string json = GetDataFromPage(pageUrl);
+            ParseJsonPage(json);
+        }
+
+        string GetDataFromPage(string url)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
             HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            
-            if(response.StatusCode == HttpStatusCode.OK)
+
+            if (response.StatusCode == HttpStatusCode.OK)
             {
                 Stream receiveStream = response.GetResponseStream();
                 StreamReader readStream = null;
@@ -43,9 +49,9 @@ namespace WitcherResponsesBot
                 response.Close();
                 readStream.Close();
 
-                //Do AFTER closing streams
-                ParseJsonPage(data);
+                return data;
             }
+            return "";
         }
 
         /// <summary>
@@ -60,6 +66,7 @@ namespace WitcherResponsesBot
             List<CharacterResponse> responses = new List<CharacterResponse>();
             foreach (var value in jsonObject["query"]["categorymembers"])
             {
+                //Example
                 //"title":"File:Adda - Mmm\u2026 What Is It I Fancy Today\u2026.mp3"
                 string fullString = value["title"].ToString();
                 string withoutFile = fullString.Replace("File:", "");

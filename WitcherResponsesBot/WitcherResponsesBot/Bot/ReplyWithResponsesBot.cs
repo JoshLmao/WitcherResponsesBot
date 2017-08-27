@@ -1,5 +1,4 @@
-﻿using RedditSharp;
-using RedditSharp.Things;
+﻿using RedditSharp.Things;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,62 +6,45 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using WitcherResponsesBot.Models;
+using WitcherResponsesBot.Services;
 
-namespace WitcherResponsesBot
+namespace WitcherResponsesBot.Bot
 {
-    public class RedditManager
+    public class ReplyWithResponsesBot
     {
-        Reddit m_activeReddit = null;
+        RedditService m_redditService;
 
         string m_botUsername;
-        string m_botPassword;
-        string m_clientId;
-        string m_secretClientId;
 
-        List<Subreddit> m_listeningSubreddits = new List<Subreddit>();
-
-        public RedditManager(string username, string password, string clientId, string clientSecretId)
+        public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits)
         {
-            m_botUsername = username;
-            m_botPassword = password;
-            m_clientId = clientId;
-            m_secretClientId = clientSecretId;
+            m_botUsername = botUsername;
 
-            BotWebAgent webAgent = new BotWebAgent(m_botUsername, m_botPassword, m_clientId, m_secretClientId, "http://localhost:8080");
-            m_activeReddit = new Reddit(webAgent, true);
+            m_redditService = new RedditService(botUsername, botPassword, clientId, clientSecretId);
+            
+            //Configure subreddits to listen to
+            foreach(string sub in subreddits)
+            {
+                m_redditService.ListenToSubreddit($"/r/{sub}");
+                Debug.Log($"Listening to subreddit /r/{sub}");
+            }
         }
 
         /// <summary>
-        /// Makes the manager listen to a new subreddit
+        /// Starts a infinte loop to constantly update and do it's job
         /// </summary>
-        /// <param name="subreddit"></param>
-        public void ListenToSubreddit(string subreddit)
-        {
-            if(m_activeReddit != null)
-            {
-                Subreddit foundSub = m_activeReddit.GetSubreddit(subreddit);
-                if (foundSub != null)
-                {
-                    m_listeningSubreddits.Add(foundSub);
-                    foundSub.Subscribe();
-                }
-            }   
-        }
-        
         public void Update()
         {
-            //Search all subs
-            foreach(Subreddit sub in m_listeningSubreddits)
+            while(true)
             {
-                //Search posts
-                foreach (Post post in sub.New.Take(25))
+                var posts = m_redditService.GetPosts();
+                foreach (Post post in posts)
                 {
                     //Search comments
                     foreach (Comment comment in post.Comments)
                         ValidateComment(comment);
                 }
             }
-
         }
 
         /// <summary>
@@ -97,10 +79,16 @@ namespace WitcherResponsesBot
         /// <param name="responseLine">The response line</param>
         void PostReply(Comment originalComment, CharacterResponse response)
         {
-            Debug.Log($"Replying to comment with response '{response.Character}' - '{response.Response}'");
+            Debug.Log($"Replying to '{originalComment.AuthorName}'s comment with response '{response.Character}' - '{response.Response}'");
 
-            var reply = originalComment.Reply($"[{response.Response}]({response.Url})");
+            string reply = $"[{response.Response}]({response.Url})" +
+                            Environment.NewLine +
+                            "*****" +
+                            Environment.NewLine +
+                            "^^Got ^^a ^^question? ^^Ask ^^/u/JoshLmao ^^- ^^[Github](https://github.com/JoshLmao/WitcherResponsesBot) ^^- ^^[Suggestions](https://github.com/JoshLmao/WitcherResponsesBot/issues)";
 
+            //Comment replyComment = originalComment.Reply(reply);
+            m_redditService.ReplyToComment(originalComment, reply);
             //?
             //reply.Distinguish(VotableThing.DistinguishType.Moderator);
         }
