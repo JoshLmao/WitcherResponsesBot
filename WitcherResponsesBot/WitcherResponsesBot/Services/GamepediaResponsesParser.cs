@@ -31,9 +31,6 @@ namespace WitcherResponsesBot.Services
             string categoryReplaced = m_category.Replace(" ", "_");
             string pageUrl = $"{Constants.BASE_URL}/{API_RESPONSES_URL}{categoryReplaced}";
 
-            //string json = GetDataFromPage(pageUrl);
-            //return ParseJsonFromPage(pageUrl, json);
-
             return PopulateDatabase(pageUrl);
         }
 
@@ -79,6 +76,7 @@ namespace WitcherResponsesBot.Services
                     //Remove white space that was left when removing -
                     if (character.Last() == ' ')
                         character = character.Remove(character.Length - 1, 1);
+                    character = RemoveFactionInitials(character);
 
                     string response = split[1];
                     //Remove white space that was left when removing -
@@ -93,6 +91,22 @@ namespace WitcherResponsesBot.Services
             }
 
             return responses;
+        }
+
+        /// <summary>
+        /// Removed faction phrases at the start of some character names
+        /// </summary>
+        /// <param name="character">The character string</param>
+        /// <returns>The character without the phrases</returns>
+        string RemoveFactionInitials(string character)
+        {
+            string[] factions = new string[] { "NT. ", "Taunt. ", "SK. ", "ST. ", "NR. ", "NG. ", "MO. " };
+            for (int i = 0; i < factions.Length; i++)
+            {
+                if (character.Contains(factions[i]))
+                    character = character.Replace(factions[i], "");
+            }
+            return character;
         }
 
         string GetDataFromPage(string url)
@@ -122,35 +136,6 @@ namespace WitcherResponsesBot.Services
                 return data;
             }
             return "";
-        }
-
-        /// <summary>
-        /// Parses the json and converts it to be used
-        /// </summary>
-        /// <param name="json">The json from the web page</param>
-        List<CharacterResponse> ParseJsonFromPage(string originalUrl, string json)
-        {
-            JObject jsonObject = GetJObjectFromJson(json);
-
-            List<CharacterResponse> responses = new List<CharacterResponse>();
-            foreach (var value in jsonObject["query"]["categorymembers"])
-            {
-                //Example: "title":"File:Adda - Mmm\u2026 What Is It I Fancy Today\u2026.mp3"
-                string title = value["title"].ToString();
-                string withoutFile = title.Replace("File:", "");
-                string withoutMp3 = title.Replace(".mp3", "");
-                string withoutFileAndMp3 = withoutMp3 = withoutMp3.Replace("File:", "");
-
-                string[] split = withoutFileAndMp3.Split(new string[] { " - " }, StringSplitOptions.None);
-                string character = split[0];
-                string response = split[1];
-                string url = GetUrlFromFileName(title);
-
-                responses.Add(new CharacterResponse(character, response, url));
-                Debug.Log($"Added New Response - {character}, {response}");
-            }
-
-            return responses;
         }
 
         JObject GetJObjectFromJson(string json)

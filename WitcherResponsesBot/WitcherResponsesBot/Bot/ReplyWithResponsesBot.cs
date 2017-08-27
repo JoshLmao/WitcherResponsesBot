@@ -17,7 +17,12 @@ namespace WitcherResponsesBot.Bot
     {
         string m_botUsername;
         RedditService m_redditService;
-        DateTime m_lastUpdate = DateTime.MinValue;
+        DateTime m_botStartTime = DateTime.MinValue;
+        /// <summary>
+        /// Internal list to keep track of comments bot has replied to.
+        /// Reason: If bot checks same comment twice, it won't be updated to include the comment it just did
+        /// </summary>
+        List<Comment> m_repliedToComments = new List<Comment>();
 
         readonly int POST_LIMIT = 150;
 
@@ -34,6 +39,8 @@ namespace WitcherResponsesBot.Bot
                 m_redditService.ListenToSubreddit($"/r/{sub}");
                 Debug.Log($"Listening to subreddit /r/{sub}");
             }
+
+            m_botStartTime = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -152,6 +159,9 @@ namespace WitcherResponsesBot.Bot
                 int sleepDuration = seconds * 1000;
                 Debug.LogImportant($"Idling for {seconds}...");
                 Thread.Sleep(sleepDuration);
+
+                //Clear comments for next time
+                m_repliedToComments.Clear();
             }
         }
 
@@ -165,6 +175,10 @@ namespace WitcherResponsesBot.Bot
             {
                 foreach (Comment comment in post.Comments)
                 {
+                    //Dont reply to a comment if it is before the app started. Do it if debugging
+                    if (comment.CreatedUTC < m_botStartTime && !System.Diagnostics.Debugger.IsAttached)
+                        continue;
+
                     var containsResponseKvp = ValidateComment(comment);
                     if (containsResponseKvp.Key)
                         PostReply(comment, containsResponseKvp.Value);
@@ -207,16 +221,20 @@ namespace WitcherResponsesBot.Bot
         /// <param name="responseLine">The response line</param>
         void PostReply(Comment originalComment, CharacterResponse response)
         {
+            //Check AuthorName & Body to see if it's the same
+            if (m_repliedToComments.Any(c => c.Body == originalComment.Body && c.AuthorName == originalComment.AuthorName))
+                return;
+
             Debug.Log($"Replying to '{originalComment.AuthorName}'s comment with response '{response.Character}' - '{response.Response}'");
 
-            string reply = $"[{response.Response}]({response.Url})" +
+            string reply = $"[{response.Character}: {response.Response}]({response.Url})" +
                             Environment.NewLine +
                             "*****" +
                             Environment.NewLine +
                             "^^Got ^^a ^^question? ^^Ask ^^/u/JoshLmao ^^- ^^[Github](https://github.com/JoshLmao/WitcherResponsesBot) ^^- ^^[Suggestions](https://github.com/JoshLmao/WitcherResponsesBot/issues)";
 
             m_redditService.ReplyToComment(originalComment, reply);
-            
+            m_repliedToComments.Add(originalComment);
             //Sleep for one second
             Thread.Sleep(1000);
 
