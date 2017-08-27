@@ -60,6 +60,8 @@ namespace WitcherResponsesBot.Bot
                     {
                         ResponsesDatabase.Responses = JsonConvert.DeserializeObject<List<CharacterResponse>>(json);
                         parsedSuccessfully = ResponsesDatabase.Responses != null && ResponsesDatabase.Responses.Count > 0;
+
+                        Debug.Log($"Database file found. Using data from file {filePath}");
                     }
                     catch (Exception e)
                     {
@@ -70,12 +72,12 @@ namespace WitcherResponsesBot.Bot
                     {
                         //If fail to parse existing database, recreate it
                         Debug.LogImportant("Couldn't deserialize previous database file. Recreating database...");
-
                         PopulateDatabase(filePath);
                     }
                 }
                 else
                 {
+                    Debug.LogImportant("No databasefile found. Gathering data and creating a new database file...");
                     SetupDatabaseFile(filePath);
                     PopulateDatabase(filePath);
                 }
@@ -154,8 +156,8 @@ namespace WitcherResponsesBot.Bot
                 List<Post> hotPosts = m_redditService.GetHotPosts(POST_LIMIT);
                 CheckPostsForResponses(hotPosts);
 
-                //Sleep for 60 seconds
-                int seconds = 60;
+                //Sleep for x seconds
+                int seconds = Constants.SLEEP_SECONDS;
                 int sleepDuration = seconds * 1000;
                 Debug.LogImportant($"Idling for {seconds}...");
                 Thread.Sleep(sleepDuration);
@@ -175,24 +177,41 @@ namespace WitcherResponsesBot.Bot
             {
                 foreach (Comment comment in post.Comments)
                 {
-                    //Dont reply to a comment if it is before the app started. Do it if debugging
-                    if (comment.CreatedUTC < m_botStartTime && !System.Diagnostics.Debugger.IsAttached)
-                        continue;
-
                     var containsResponseKvp = ValidateComment(comment);
                     if (containsResponseKvp.Key)
                         PostReply(comment, containsResponseKvp.Value);
+
+                    if (comment.Comments.Count > 0)
+                        CheckChildComments(comment.Comments);
                 }
             }
         }
 
+        void CheckChildComments(IList<Comment> comments)
+        {
+            foreach(Comment c in comments)
+            {
+                var containsResponseKvp = ValidateComment(c);
+                if (containsResponseKvp.Key)
+                    PostReply(c, containsResponseKvp.Value);
+
+                if (c.Comments.Count > 0)
+                    CheckChildComments(c.Comments);
+            }
+        }
+
         /// <summary>
-        /// Find out if the comment contains a valid voice line response
+        /// Find out if the comment contains a valid voice line response and matched any criteria
         /// </summary>
         /// <param name="comment">The body of the current comment</param>
         /// <returns>Returns kvp contains if comment is valid for the bot (Key) and the response (Value)</returns>
         KeyValuePair<bool, CharacterResponse> ValidateComment(Comment comment)
         {
+            //Dont reply to a comment if it is before the app started. Do it if debugging
+            if (comment.CreatedUTC < m_botStartTime && !System.Diagnostics.Debugger.IsAttached ||
+                comment.AuthorName == m_botUsername)
+                return new KeyValuePair<bool, CharacterResponse>(false, null);
+
             //Remove any ! and .
             string compareComment = RemoveInvalidChars(comment.Body);
 
@@ -235,25 +254,46 @@ namespace WitcherResponsesBot.Bot
 
             m_redditService.ReplyToComment(originalComment, reply);
             m_repliedToComments.Add(originalComment);
-            //Sleep for one second
+            
+            //Sleep for one second after replying
             Thread.Sleep(1000);
-
-            //?
-            //reply.Distinguish(VotableThing.DistinguishType.Moderator);
         }
 
-        string RemoveInvalidChars(string originalString)
+        /// <summary>
+        /// Selectively remove certain characters in the response.
+        /// For example: Don't allow if response is with strikethrough (~~response~~)
+        /// </summary>
+        /// <param name="modifiedString"></param>
+        /// <returns></returns>
+        string RemoveInvalidChars(string modifiedString)
         {
-            originalString = originalString.Replace("?", "");
-            originalString = originalString.Replace(".", "");
-            originalString = originalString.Replace("!", "");
-            originalString = Regex.Replace(originalString, @"[^\u0000-\u007F]+", string.Empty);
-            return originalString.ToLower();
-        }
+            string originalString = modifiedString;
+            //Allow comparison with certain markdown formatting
+            string[] formatting = new string[] { "*", "#", "^", ">", "&gt;" };
+            for (int i = 0; i < formatting.Length; i++)
+                modifiedString = modifiedString.Replace(formatting[i], "");
 
-        void SetupDatabaseFile()
-        {
+            string[] specificChars = new string[] { ";)", ";(", ";)", ":(", ":D", ";D" };
+            for (int i = 0; i < specificChars.Length; i++)
+                modifiedString = modifiedString.Replace(specificChars[i], "");
 
+            //Allow comparison with other symbols
+            modifiedString = modifiedString.Replace("!", "");
+            modifiedString = modifiedString.Replace("?", "");
+            modifiedString = modifiedString.Replace("'", "");
+            modifiedString = modifiedString.Replace("?", "");
+            modifiedString = modifiedString.Replace("\"", "");
+            modifiedString = modifiedString.Replace(",", "");
+
+            modifiedString = Regex.Replace(modifiedString, @"[^\u0000-\u007F]+", string.Empty);
+
+            //Check if first and last aren't white spaces for correct comparison
+            while(modifiedString.First() == ' ')
+                modifiedString = modifiedString.Remove(0, 1);
+            while (modifiedString.Last() == ' ')
+                modifiedString = modifiedString.Remove(modifiedString.Length - 1, 1);
+
+            return modifiedString.ToLower();
         }
     }
 }
