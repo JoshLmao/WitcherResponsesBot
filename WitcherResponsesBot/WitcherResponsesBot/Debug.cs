@@ -26,7 +26,7 @@ namespace WitcherResponsesBot
         /// </summary>
         /// <param name="message"></param>
         /// <param name="ex"></param>
-        public static void LogError(string message, Exception ex)
+        public static void LogException(string message, Exception ex)
         {
             Console.ForegroundColor = m_errorColor;
             Log(message);
