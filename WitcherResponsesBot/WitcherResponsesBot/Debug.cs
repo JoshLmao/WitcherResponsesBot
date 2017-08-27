@@ -9,7 +9,7 @@ namespace WitcherResponsesBot
     class Debug
     {
         static ConsoleColor m_errorColor = ConsoleColor.Red;
-        static ConsoleColor m_importantColor = ConsoleColor.Blue;
+        static ConsoleColor m_importantColor = ConsoleColor.Magenta;
         static ConsoleColor m_defaultColor = ConsoleColor.White;
 
         /// <summary>

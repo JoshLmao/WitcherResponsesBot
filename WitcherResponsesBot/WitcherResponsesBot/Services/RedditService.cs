@@ -52,14 +52,20 @@ namespace WitcherResponsesBot.Services
             c.Reply(message);
         }
 
-        public List<Post> GetPosts()
+        public List<Post> GetHotPosts(int limit)
         {
-            List<Post> posts = new List<Post>();
+            List<Post> hotPosts = new List<Post>();
             foreach (Subreddit sub in m_listeningSubreddits)
-            {
-                posts.AddRange(sub.New.Take(25));
-            }
-            return posts;
+                hotPosts.AddRange(sub.Hot.Take(limit));
+            return hotPosts;
+        }
+
+        public List<Post> GetNewPosts(int limit)
+        {
+            List<Post> newPosts = new List<Post>();
+            foreach (Subreddit sub in m_listeningSubreddits)
+                newPosts.AddRange(sub.New.Take(limit));
+            return newPosts;
         }
     }
 }

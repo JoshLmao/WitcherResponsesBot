@@ -16,6 +16,7 @@ namespace WitcherResponsesBot.Services
 
         public static void SetDatabase(List<CharacterResponse> database)
         {
+            Debug.LogImportant("Database has been updated with the latest");
             Responses = database;
         }
     }

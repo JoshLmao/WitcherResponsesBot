@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using WitcherResponsesBot.Models;
 using WitcherResponsesBot.Services;
@@ -12,9 +13,13 @@ namespace WitcherResponsesBot.Bot
 {
     public class ReplyWithResponsesBot
     {
-        RedditService m_redditService;
+
 
         string m_botUsername;
+        RedditService m_redditService;
+        DateTime m_lastUpdate = DateTime.MinValue;
+
+        readonly int POST_LIMIT = 150;
 
         public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits)
         {
@@ -35,14 +40,39 @@ namespace WitcherResponsesBot.Bot
         /// </summary>
         public void Update()
         {
+            Debug.LogImportant("Started Witcher ReplyToResponses bot");
+
             while(true)
             {
-                var posts = m_redditService.GetPosts();
-                foreach (Post post in posts)
+                Debug.Log("Scanning New & Hot posts for responses");
+
+                //Scan 'New' posts
+                List<Post> newPosts = m_redditService.GetNewPosts(POST_LIMIT);
+                CheckPostsForResponses(newPosts);
+
+                //Scan 'Hot' posts
+                List<Post> hotPosts = m_redditService.GetHotPosts(POST_LIMIT);
+                CheckPostsForResponses(hotPosts);
+
+                //Sleep for 60 seconds
+                int sleepDuration = 60 * 1000;
+                Thread.Sleep(sleepDuration);
+            }
+        }
+
+        /// <summary>
+        /// Checks the list of posts for comments that should be replied to
+        /// </summary>
+        /// <param name="posts">The list of posts</param>
+        void CheckPostsForResponses(List<Post> posts)
+        {
+            foreach (Post post in posts)
+            {
+                foreach (Comment comment in post.Comments)
                 {
-                    //Search comments
-                    foreach (Comment comment in post.Comments)
-                        ValidateComment(comment);
+                    var containsResponseKvp = ValidateComment(comment);
+                    if (containsResponseKvp.Key)
+                        PostReply(comment, containsResponseKvp.Value);
                 }
             }
         }
@@ -51,7 +81,8 @@ namespace WitcherResponsesBot.Bot
         /// Find out if the comment contains a valid voice line response
         /// </summary>
         /// <param name="comment">The body of the current comment</param>
-        void ValidateComment(Comment comment)
+        /// <returns>Returns kvp contains if comment is valid for the bot (Key) and the response (Value)</returns>
+        KeyValuePair<bool, CharacterResponse> ValidateComment(Comment comment)
         {
             //Remove any ! and .
             string compareComment = RemoveInvalidChars(comment.Body);
@@ -60,16 +91,18 @@ namespace WitcherResponsesBot.Bot
             {
                 string compareResponse = RemoveInvalidChars(response.Response);
 
-                //Check if comment has response
-                if (compareComment.Contains(compareResponse))
+                //Check if comment has response. 
+                //Only reply if the user typed the response. Not if it's inside of a normal comment
+                if (compareComment == compareResponse)
                 {
                     //Dont reply if bot has already replied
                     if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
                         continue;
                     else
-                        PostReply(comment, response);
+                        return new KeyValuePair<bool, CharacterResponse>(true, response);
                 }
             }
+            return new KeyValuePair<bool, CharacterResponse>(false, null);
         }
 
         /// <summary>
