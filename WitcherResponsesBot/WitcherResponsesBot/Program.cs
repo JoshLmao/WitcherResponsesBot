@@ -37,9 +37,13 @@ namespace WitcherResponsesBot
                 .Required();
             parser.Parse(args);
 
+            GamepediaResponsesParser responsesParser = new GamepediaResponsesParser(Constants.CATEGORY);
             RedditManager rm = new RedditManager(redditBotUsername, redditBotPassword, clientId, secretClientId);
             foreach (string sub in subreddits)
+            {
                 rm.ListenToSubreddit($"/r/{sub}");
+                Debug.Log($"Listening to subreddit /r/{sub}");
+            }
 
             rm.Update();
         }

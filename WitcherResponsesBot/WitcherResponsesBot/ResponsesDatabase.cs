@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WitcherResponsesBot.Models;
 
 namespace WitcherResponsesBot
 {
@@ -11,18 +12,11 @@ namespace WitcherResponsesBot
         /// <summary>
         /// Dictionary of formatted voice lines & their URL
         /// </summary>
-        public static Dictionary<string, string> Responses = new Dictionary<string, string>()
-        {
-            { "Curses!", "https://google.com" }
-        };
+        public static List<CharacterResponse> Responses = null;
 
-        public static string GetVoiceLineUrl(string voiceLine)
+        public static void SetDatabase(List<CharacterResponse> database)
         {
-            string lower = voiceLine.ToLower();
-            if (Responses.ContainsKey(lower))
-                return Responses[lower];
-            else
-                return string.Empty;
+            Responses = database;
         }
     }
 }

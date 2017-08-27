@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using WitcherResponsesBot.Models;
 
 namespace WitcherResponsesBot
 {
@@ -70,19 +72,20 @@ namespace WitcherResponsesBot
         void ValidateComment(Comment comment)
         {
             //Remove any ! and .
-            string replacedComment = comment.Body.Replace("!", "");
-            replacedComment = comment.Body.Replace(".", "");
+            string compareComment = RemoveInvalidChars(comment.Body);
 
-            foreach (string voiceLine in ResponsesDatabase.Responses.Keys)
+            foreach (CharacterResponse response in ResponsesDatabase.Responses)
             {
-                //Original comment contains the response
-                if (comment.Body.Contains(replacedComment))
+                string compareResponse = RemoveInvalidChars(response.Response);
+
+                //Check if comment has response
+                if (compareComment.Contains(compareResponse))
                 {
-                    ////Dont reply if bot has already replied
+                    //Dont reply if bot has already replied
                     if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
                         continue;
                     else
-                        PostReply(comment, voiceLine);
+                        PostReply(comment, response);
                 }
             }
         }
@@ -92,11 +95,23 @@ namespace WitcherResponsesBot
         /// </summary>
         /// <param name="originalComment">The original comment</param>
         /// <param name="responseLine">The response line</param>
-        void PostReply(Comment originalComment, string responseLine)
+        void PostReply(Comment originalComment, CharacterResponse response)
         {
-            var reply = originalComment.Reply($"[{responseLine}]({ResponsesDatabase.GetVoiceLineUrl(responseLine)})");
+            Debug.Log($"Replying to comment with response '{response.Character}' - '{response.Response}'");
+
+            var reply = originalComment.Reply($"[{response.Response}]({response.Url})");
+
             //?
             //reply.Distinguish(VotableThing.DistinguishType.Moderator);
+        }
+
+        string RemoveInvalidChars(string originalString)
+        {
+            originalString = originalString.Replace("?", "");
+            originalString = originalString.Replace(".", "");
+            originalString = originalString.Replace("!", "");
+            originalString = Regex.Replace(originalString, @"[^\u0000-\u007F]+", string.Empty);
+            return originalString.ToLower();
         }
     }
 }
