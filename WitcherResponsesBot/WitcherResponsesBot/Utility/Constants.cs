@@ -16,5 +16,10 @@ namespace WitcherResponsesBot
         /// Amount of seconds to sleep inbetween an update
         /// </summary>
         public static int SLEEP_SECONDS = 60;
+
+        public static readonly List<string> EXCLUDE_PHRASES = new List<string>()
+        {
+            "Yes", "No", "Ok", "Okay"
+        };
     }
 }

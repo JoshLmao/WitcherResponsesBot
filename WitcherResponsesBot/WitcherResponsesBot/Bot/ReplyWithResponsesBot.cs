@@ -215,21 +215,32 @@ namespace WitcherResponsesBot.Bot
             //Remove any ! and .
             string compareComment = RemoveInvalidChars(comment.Body);
 
+            List<CharacterResponse> matchingResponses = new List<CharacterResponse>();
             foreach (CharacterResponse response in ResponsesDatabase.Responses)
             {
                 string compareResponse = RemoveInvalidChars(response.Response);
 
-                //Check if comment has response. 
-                //Only reply if the user typed the response. Not if it's inside of a normal comment
+                //Check if comment has response. Reply if comment is solely for response
                 if (compareComment == compareResponse)
                 {
+                    //Dont post response if phrase matched excluded phrases
+                    if (Constants.EXCLUDE_PHRASES.Any(x => x.ToLower() == compareComment))
+                        continue;
+
                     //Dont reply if bot has already replied
                     if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
                         continue;
                     else
-                        return new KeyValuePair<bool, CharacterResponse>(true, response);
+                        matchingResponses.Add(response);
                 }
             }
+
+            //Determine which is best to use from many matched
+            if(matchingResponses.Count > 0)
+            {
+                return new KeyValuePair<bool, CharacterResponse>(true, matchingResponses.First());
+            }
+
             return new KeyValuePair<bool, CharacterResponse>(false, null);
         }
 
