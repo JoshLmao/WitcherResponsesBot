@@ -18,6 +18,7 @@ namespace WitcherResponsesBot
             string clientId = null;
             string secretClientId = null;
             List<string> subreddits = null;
+            string databaseFilePath = "";
 
             //Setup and parse FluentCommandLineParser
             var parser = new FluentCommandLineParser();
@@ -42,13 +43,13 @@ namespace WitcherResponsesBot
                 .Callback(subs => subreddits = subs)
                 .WithDescription("The list of subreddits for the bot to scan through")
                 .Required();
+            parser.Setup<string>('f', "databaseFilePath")
+                .Callback(path => databaseFilePath = path)
+                .WithDescription("The file path to where to save the database file");
             parser.Parse(args);
 
-            //Parse all responses from Gamepedia
-            GamepediaResponsesParser responsesParser = new GamepediaResponsesParser(Constants.CATEGORY);
-
             //Start bot
-            ReplyWithResponsesBot responsesBot = new ReplyWithResponsesBot(redditBotUsername, redditBotPassword, clientId, secretClientId, subreddits.ToArray());
+            ReplyWithResponsesBot responsesBot = new ReplyWithResponsesBot(redditBotUsername, redditBotPassword, clientId, secretClientId, subreddits.ToArray(), databaseFilePath);
             responsesBot.Update();
         }
     }

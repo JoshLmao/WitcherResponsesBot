@@ -1,6 +1,8 @@
-﻿using RedditSharp.Things;
+﻿using Newtonsoft.Json;
+using RedditSharp.Things;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -13,26 +15,117 @@ namespace WitcherResponsesBot.Bot
 {
     public class ReplyWithResponsesBot
     {
-
-
         string m_botUsername;
         RedditService m_redditService;
         DateTime m_lastUpdate = DateTime.MinValue;
 
         readonly int POST_LIMIT = 150;
 
-        public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits)
+        public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits, string databaseFilePath = "")
         {
             m_botUsername = botUsername;
 
+            ConfigureDatabase(databaseFilePath);
             m_redditService = new RedditService(botUsername, botPassword, clientId, clientSecretId);
-            
+
             //Configure subreddits to listen to
-            foreach(string sub in subreddits)
+            foreach (string sub in subreddits)
             {
                 m_redditService.ListenToSubreddit($"/r/{sub}");
                 Debug.Log($"Listening to subreddit /r/{sub}");
             }
+        }
+
+        /// <summary>
+        /// Configures the database to load all responses from file or gather the data again
+        /// </summary>
+        /// <param name="filePath"></param>
+        void ConfigureDatabase(string filePath)
+        {
+            if (filePath != "")
+            {
+                if (File.Exists(filePath))
+                {
+                    string json = File.ReadAllText(filePath);
+                    bool parsedSuccessfully = false;
+
+                    try
+                    {
+                        ResponsesDatabase.Responses = JsonConvert.DeserializeObject<List<CharacterResponse>>(json);
+                        parsedSuccessfully = ResponsesDatabase.Responses != null && ResponsesDatabase.Responses.Count > 0;
+                    }
+                    catch (Exception e)
+                    {
+                        parsedSuccessfully = false;
+                    }
+
+                    if (!parsedSuccessfully)
+                    {
+                        //If fail to parse existing database, recreate it
+                        Debug.LogImportant("Couldn't deserialize previous database file. Recreating database...");
+
+                        PopulateDatabase(filePath);
+                    }
+                }
+                else
+                {
+                    SetupDatabaseFile(filePath);
+                    PopulateDatabase(filePath);
+                }
+            }
+            else
+            {
+                Debug.LogImportant("No database file path specified. Won't be able to save gathered data");
+                PopulateDatabase(filePath);
+            }
+        }
+
+        /// <summary>
+        /// Sets up the file database to be written to once gathered the latest responses
+        /// </summary>
+        /// <param name="databaseFilePath">The file path of the database</param>
+        void SetupDatabaseFile(string databaseFilePath)
+        {
+            var dir = Path.GetDirectoryName(databaseFilePath);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            if(!File.Exists(databaseFilePath))
+                File.Create(databaseFilePath).Close();
+        }
+
+        /// <summary>
+        /// Gatheres the latest responses from the Gwent Wiki and saves them to the database and the file
+        /// </summary>
+        /// <param name="filePath">The file path. Can be empty if none specified</param>
+        void PopulateDatabase(string filePath)
+        {
+            //Parse all responses from Gamepedia
+            Debug.LogImportant("Starting to gather responses...");
+
+            GamepediaResponsesParser responsesParser = new GamepediaResponsesParser(Constants.CATEGORY);
+            List<CharacterResponse> responses = responsesParser.Parse();
+
+            Debug.LogImportant("Finished gathering responses.");
+
+            //Set responses after parsing
+            ResponsesDatabase.Responses = responses;
+
+            //Save all to file for next time
+            if(filePath != "")
+                WriteDatabaseToFile(responses, filePath);
+        }
+
+        /// <summary>
+        /// Writes the given list of responses in json to a file
+        /// </summary>
+        /// <param name="responses">The current list of responses</param>
+        /// <param name="filePath">The file path to save to</param>
+        void WriteDatabaseToFile(List<CharacterResponse> responses, string filePath)
+        {
+            //Save gathered data to database instead of polling everytime on start
+            string json = JsonConvert.SerializeObject(responses, Formatting.Indented);
+            File.WriteAllText(filePath, json);
         }
 
         /// <summary>
@@ -55,7 +148,9 @@ namespace WitcherResponsesBot.Bot
                 CheckPostsForResponses(hotPosts);
 
                 //Sleep for 60 seconds
-                int sleepDuration = 60 * 1000;
+                int seconds = 60;
+                int sleepDuration = seconds * 1000;
+                Debug.LogImportant($"Idling for {seconds}...");
                 Thread.Sleep(sleepDuration);
             }
         }
@@ -120,8 +215,11 @@ namespace WitcherResponsesBot.Bot
                             Environment.NewLine +
                             "^^Got ^^a ^^question? ^^Ask ^^/u/JoshLmao ^^- ^^[Github](https://github.com/JoshLmao/WitcherResponsesBot) ^^- ^^[Suggestions](https://github.com/JoshLmao/WitcherResponsesBot/issues)";
 
-            //Comment replyComment = originalComment.Reply(reply);
             m_redditService.ReplyToComment(originalComment, reply);
+            
+            //Sleep for one second
+            Thread.Sleep(1000);
+
             //?
             //reply.Distinguish(VotableThing.DistinguishType.Moderator);
         }
@@ -133,6 +231,11 @@ namespace WitcherResponsesBot.Bot
             originalString = originalString.Replace("!", "");
             originalString = Regex.Replace(originalString, @"[^\u0000-\u007F]+", string.Empty);
             return originalString.ToLower();
+        }
+
+        void SetupDatabaseFile()
+        {
+
         }
     }
 }

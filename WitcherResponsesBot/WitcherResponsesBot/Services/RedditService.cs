@@ -47,9 +47,9 @@ namespace WitcherResponsesBot.Services
             }
         }
 
-        public void ReplyToComment(Comment c, string message)
+        public Comment ReplyToComment(Comment c, string message)
         {
-            c.Reply(message);
+            return c.Reply(message);
         }
 
         public List<Post> GetHotPosts(int limit)
