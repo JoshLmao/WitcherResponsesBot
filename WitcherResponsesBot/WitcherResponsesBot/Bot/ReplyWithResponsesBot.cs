@@ -10,11 +10,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using WitcherResponsesBot.Models;
 using WitcherResponsesBot.Services;
+using WitcherResponsesBot.Utility;
 
 namespace WitcherResponsesBot.Bot
 {
     public class ReplyWithResponsesBot
     {
+        enum CompareType
+        {
+            Accurate,
+            General,
+        }
+
         string m_botUsername;
         RedditService m_redditService;
         DateTime m_botStartTime = DateTime.MinValue;
@@ -23,6 +30,10 @@ namespace WitcherResponsesBot.Bot
         /// Reason: If bot checks same comment twice, it won't be updated to include the comment it just did
         /// </summary>
         List<Comment> m_repliedToComments = new List<Comment>();
+        /// <summary>
+        /// The type of comparison the bot should do when comparing comments to voice lines.
+        /// </summary>
+        CompareType m_compareType = CompareType.General;
 
         readonly int POST_LIMIT = 150;
 
@@ -216,13 +227,25 @@ namespace WitcherResponsesBot.Bot
                 comment.AuthorName == m_botUsername)
                 return new KeyValuePair<bool, CharacterResponse>(false, null);
 
-            //Remove any ! and .
-            string compareComment = RemoveInvalidChars(comment.Body);
+            switch (m_compareType)
+            {
+                case CompareType.Accurate:
+                    return AccurateCompare(comment);
+                case CompareType.General:
+                    return GeneralCompare(comment);
+                default:
+                    throw new NotImplementedException("Need to use a comparison type that has been implemented");
+            }
+        }
+
+        KeyValuePair<bool, CharacterResponse> AccurateCompare(Comment comment)
+        {
+            string compareComment = AccurateString(comment.Body);
 
             List<CharacterResponse> matchingResponses = new List<CharacterResponse>();
             foreach (CharacterResponse response in ResponsesDatabase.Responses)
             {
-                string compareResponse = RemoveInvalidChars(response.Response);
+                string compareResponse = AccurateString(response.Response);
 
                 //Check if comment has response. Reply if comment is solely for response
                 if (compareComment == compareResponse)
@@ -240,12 +263,88 @@ namespace WitcherResponsesBot.Bot
             }
 
             //Determine which is best to use from many matched
-            if(matchingResponses.Count > 0)
+            if (matchingResponses.Count > 0)
             {
                 return new KeyValuePair<bool, CharacterResponse>(true, matchingResponses.First());
             }
 
             return new KeyValuePair<bool, CharacterResponse>(false, null);
+        }
+
+        /// <summary>
+        /// Method for an accurate comparison. Ie: The comment was wrote with the intention of a reply
+        /// </summary>
+        /// <param name="comment"></param>
+        /// <returns></returns>
+        string AccurateString(string comment)
+        {
+            comment = MessageModifier.RemoveWhiteSpaceAtStartAndEnd(comment);
+
+            return comment.ToLower();
+        }
+
+        KeyValuePair<bool, CharacterResponse> GeneralCompare(Comment comment)
+        {
+            //Remove any ! and .
+            string compareComment = GeneralString(comment.Body);
+
+            List<CharacterResponse> matchingResponses = new List<CharacterResponse>();
+            foreach (CharacterResponse response in ResponsesDatabase.Responses)
+            {
+                string compareResponse = GeneralString(response.Response);
+
+                //Check if comment has response. Reply if comment is solely for response
+                if (compareComment == compareResponse)
+                {
+                    //Dont post response if phrase matched excluded phrases
+                    if (Constants.EXCLUDE_PHRASES.Any(x => x.ToLower() == compareComment))
+                        continue;
+
+                    //Dont reply if bot has already replied
+                    if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
+                        continue;
+                    else
+                        matchingResponses.Add(response);
+                }
+            }
+
+            //Determine which is best to use from many matched
+            if (matchingResponses.Count > 0)
+            {
+                return new KeyValuePair<bool, CharacterResponse>(true, matchingResponses.First());
+            }
+            return new KeyValuePair<bool, CharacterResponse>(false, null);
+        }
+
+        /// <summary>
+        /// Tries to remove as many unwanted characters as possible for a good compaison. Allows for markdown, char faces, emojis, punctuation
+        /// </summary>
+        /// <param name="comment"></param>
+        /// <returns></returns>
+        string GeneralString(string comment)
+        {
+            string originalString = comment;
+
+            //Allow comparison with certain markdown formatting
+            comment = MessageModifier.RemoveMarkdownCharacters(comment);
+
+            string[] specificChars = new string[] { ";)", ";(", ";)", ":(", ":D", ";D" };
+            for (int i = 0; i < specificChars.Length; i++)
+                comment = comment.Replace(specificChars[i], "");
+
+            //Allow comparison with other symbols
+            comment = comment.Replace("!", "");
+            comment = comment.Replace("?", "");
+            comment = comment.Replace("'", "");
+            comment = comment.Replace("?", "");
+            comment = comment.Replace("\"", "");
+            comment = comment.Replace(",", "");
+
+            comment = MessageModifier.RemoveUnicodeCharacters(comment);
+            //Remove white space last
+            comment = MessageModifier.RemoveWhiteSpaceAtStartAndEnd(comment);
+
+            return comment.ToLower();
         }
 
         /// <summary>
@@ -272,43 +371,6 @@ namespace WitcherResponsesBot.Bot
             
             //Sleep for one second after replying
             Thread.Sleep(1000);
-        }
-
-        /// <summary>
-        /// Selectively remove certain characters in the response.
-        /// For example: Don't allow if response is with strikethrough (~~response~~)
-        /// </summary>
-        /// <param name="modifiedString"></param>
-        /// <returns></returns>
-        string RemoveInvalidChars(string modifiedString)
-        {
-            string originalString = modifiedString;
-            //Allow comparison with certain markdown formatting
-            string[] formatting = new string[] { "*", "#", "^", ">", "&gt;" };
-            for (int i = 0; i < formatting.Length; i++)
-                modifiedString = modifiedString.Replace(formatting[i], "");
-
-            string[] specificChars = new string[] { ";)", ";(", ";)", ":(", ":D", ";D" };
-            for (int i = 0; i < specificChars.Length; i++)
-                modifiedString = modifiedString.Replace(specificChars[i], "");
-
-            //Allow comparison with other symbols
-            modifiedString = modifiedString.Replace("!", "");
-            modifiedString = modifiedString.Replace("?", "");
-            modifiedString = modifiedString.Replace("'", "");
-            modifiedString = modifiedString.Replace("?", "");
-            modifiedString = modifiedString.Replace("\"", "");
-            modifiedString = modifiedString.Replace(",", "");
-
-            modifiedString = Regex.Replace(modifiedString, @"[^\u0000-\u007F]+", string.Empty);
-
-            //Check if first and last aren't white spaces for correct comparison
-            while(modifiedString.First() == ' ')
-                modifiedString = modifiedString.Remove(0, 1);
-            while (modifiedString.Last() == ' ')
-                modifiedString = modifiedString.Remove(modifiedString.Length - 1, 1);
-
-            return modifiedString.ToLower();
         }
     }
 }

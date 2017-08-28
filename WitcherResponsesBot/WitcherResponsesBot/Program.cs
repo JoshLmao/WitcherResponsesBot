@@ -52,7 +52,6 @@ namespace WitcherResponsesBot
                 .WithDescription("The file path of where to save the log file");
             parser.Parse(args);
 
-
             if (logFilePath != string.Empty)
                 Debug.SetLoggerPath(logFilePath);
 
