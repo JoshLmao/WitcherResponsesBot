@@ -156,6 +156,10 @@ namespace WitcherResponsesBot.Bot
                 List<Post> hotPosts = m_redditService.GetHotPosts(POST_LIMIT);
                 CheckPostsForResponses(hotPosts);
 
+                //Scan any stickied posts
+                List<Post> stickedPosts = m_redditService.GetStickiedPosts();
+                CheckPostsForResponses(stickedPosts);
+
                 //Sleep for x seconds
                 int seconds = Constants.SLEEP_SECONDS;
                 int sleepDuration = seconds * 1000;
@@ -261,7 +265,7 @@ namespace WitcherResponsesBot.Bot
                             Environment.NewLine +
                             "*****" +
                             Environment.NewLine +
-                            "^^Got ^^a ^^question? ^^Ask ^^/u/JoshLmao ^^- ^^[Github](https://github.com/JoshLmao/WitcherResponsesBot) ^^- ^^[Suggestions](https://github.com/JoshLmao/WitcherResponsesBot/issues)";
+                            "^^Got ^^a ^^question? ^^Ask ^^/u/JoshLmao ^^- ^^[Github](https://github.com/JoshLmao/WitcherResponsesBot) ^^- ^^[Suggestions/Issues](https://github.com/JoshLmao/WitcherResponsesBot/issues)";
 
             m_redditService.ReplyToComment(originalComment, reply);
             m_repliedToComments.Add(originalComment);

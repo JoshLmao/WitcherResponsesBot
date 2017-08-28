@@ -19,7 +19,7 @@ namespace WitcherResponsesBot
 
         public static readonly List<string> EXCLUDE_PHRASES = new List<string>()
         {
-            "Yes", "No", "Ok", "Okay"
+            "Yes", "No", "Ok", "Okay", "Uh", "Grrr"
         };
     }
 }

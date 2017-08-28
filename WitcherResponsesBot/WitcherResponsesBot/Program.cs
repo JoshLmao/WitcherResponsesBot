@@ -19,6 +19,7 @@ namespace WitcherResponsesBot
             string secretClientId = null;
             List<string> subreddits = null;
             string databaseFilePath = "";
+            string logFilePath = "";
 
             //Setup and parse FluentCommandLineParser
             var parser = new FluentCommandLineParser();
@@ -46,11 +47,25 @@ namespace WitcherResponsesBot
             parser.Setup<string>('f', "databaseFilePath")
                 .Callback(path => databaseFilePath = path)
                 .WithDescription("The file path to where to save the database file");
+            parser.Setup<string>('l', "log")
+                .Callback(log => logFilePath = log)
+                .WithDescription("The file path of where to save the log file");
             parser.Parse(args);
 
-            //Start bot
+
+            if (logFilePath != string.Empty)
+                Debug.SetLoggerPath(logFilePath);
+
+            Debug.LogImportant("Application Started");
             ReplyWithResponsesBot responsesBot = new ReplyWithResponsesBot(redditBotUsername, redditBotPassword, clientId, secretClientId, subreddits.ToArray(), databaseFilePath);
-            responsesBot.Update();
+            try
+            {
+                responsesBot.Update();
+            }
+            catch(Exception e)
+            {
+                Debug.LogException("Application Crashed", e);
+            }
         }
     }
 }

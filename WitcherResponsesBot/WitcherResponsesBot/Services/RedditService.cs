@@ -54,6 +54,8 @@ namespace WitcherResponsesBot.Services
 
         public List<Post> GetHotPosts(int limit)
         {
+            m_activeReddit.InitOrUpdateUser();
+
             List<Post> hotPosts = new List<Post>();
             foreach (Subreddit sub in m_listeningSubreddits)
                 hotPosts.AddRange(sub.Hot.Take(limit));
@@ -62,10 +64,22 @@ namespace WitcherResponsesBot.Services
 
         public List<Post> GetNewPosts(int limit)
         {
+            m_activeReddit.InitOrUpdateUser();
+
             List<Post> newPosts = new List<Post>();
             foreach (Subreddit sub in m_listeningSubreddits)
                 newPosts.AddRange(sub.New.Take(limit));
             return newPosts;
+        }
+
+        public List<Post> GetStickiedPosts()
+        {
+            m_activeReddit.InitOrUpdateUser();
+
+            List<Post> stickiedPosts = new List<Post>();
+            foreach (Subreddit sub in m_listeningSubreddits)
+                stickiedPosts.AddRange(sub.Hot.Where(x => x.IsStickied));
+            return stickiedPosts;
         }
     }
 }
