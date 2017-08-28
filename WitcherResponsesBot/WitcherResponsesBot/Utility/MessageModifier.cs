@@ -45,5 +45,10 @@ namespace WitcherResponsesBot.Utility
                 message = message.Remove(message.Length - 1, 1);
             return message;
         }
+
+        public static bool IsLastCharPunctuation(string message)
+        {
+            return char.IsPunctuation(message[message.Length - 1]);
+        }
     }
 }

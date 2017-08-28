@@ -293,17 +293,20 @@ namespace WitcherResponsesBot.Bot
             {
                 string compareResponse = GeneralString(response.Response);
 
-                //Check if comment has response. Reply if comment is solely for response
-                if (compareComment == compareResponse)
+                //If last char is punctuation in user comment, remove it and see if match
+                if(MessageModifier.IsLastCharPunctuation(compareComment))
                 {
-                    //Dont post response if phrase matched excluded phrases
-                    if (Constants.EXCLUDE_PHRASES.Any(x => x.ToLower() == compareComment))
-                        continue;
-
-                    //Dont reply if bot has already replied
-                    if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
-                        continue;
-                    else
+                    string corrected = compareComment.Remove(compareComment.Length - 1);
+                    if(corrected == compareResponse)
+                    {
+                        if(ValidateIfDuplicateOrExcluded(comment, compareComment, response))
+                            matchingResponses.Add(response);
+                    }
+                }
+                //Check if comment has response. Reply if comment is solely for response
+                else if (compareComment == compareResponse)
+                {
+                    if(ValidateIfDuplicateOrExcluded(comment, compareComment, response))
                         matchingResponses.Add(response);
                 }
             }
@@ -314,6 +317,19 @@ namespace WitcherResponsesBot.Bot
                 return new KeyValuePair<bool, CharacterResponse>(true, matchingResponses.First());
             }
             return new KeyValuePair<bool, CharacterResponse>(false, null);
+        }
+
+        bool ValidateIfDuplicateOrExcluded(Comment comment, string compareComment, CharacterResponse response)
+        {
+            //Dont post response if phrase matched excluded phrases
+            if (Constants.EXCLUDE_PHRASES.Any(x => x.ToLower() == compareComment))
+                return false;
+
+            //Dont reply if bot has already replied
+            if (comment.Comments.Any(x => x.AuthorName == m_botUsername))
+                return false;
+            else
+                return true;       
         }
 
         /// <summary>
