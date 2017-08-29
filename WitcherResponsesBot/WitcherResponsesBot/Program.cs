@@ -20,6 +20,7 @@ namespace WitcherResponsesBot
             List<string> subreddits = null;
             string databaseFilePath = "";
             string logFilePath = "";
+            bool shouldRecreate = false;
 
             //Setup and parse FluentCommandLineParser
             var parser = new FluentCommandLineParser();
@@ -50,13 +51,16 @@ namespace WitcherResponsesBot
             parser.Setup<string>('l', "log")
                 .Callback(log => logFilePath = log)
                 .WithDescription("The file path of where to save the log file");
+            parser.Setup<string>('z', "reset")
+                .Callback(reset => shouldRecreate = reset == "y")
+                .WithDescription("Use this flag to force the bot to transfer it's old database and into a new one, regathering all it's data");
             parser.Parse(args);
 
             if (logFilePath != string.Empty)
                 Debug.SetLoggerPath(logFilePath);
 
             Debug.LogImportant("Application Started");
-            ReplyWithResponsesBot responsesBot = new ReplyWithResponsesBot(redditBotUsername, redditBotPassword, clientId, secretClientId, subreddits.ToArray(), databaseFilePath);
+            ReplyWithResponsesBot responsesBot = new ReplyWithResponsesBot(redditBotUsername, redditBotPassword, clientId, secretClientId, subreddits.ToArray(), shouldRecreate, databaseFilePath);
             try
             {
                 responsesBot.Update();

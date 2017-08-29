@@ -21,5 +21,7 @@ namespace WitcherResponsesBot
         {
             "Yes", "No", "Ok", "Okay", "Uh", "Grrr"
         };
+
+        public static int DATABASE_SAVE_MILLISECONDS = (60 * 60) * 1000;
     }
 }

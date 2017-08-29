@@ -78,7 +78,18 @@ namespace WitcherResponsesBot.Services
                         character = character.Remove(character.Length - 1, 1);
                     character = RemoveFactionInitials(character);
 
-                    string response = split[1];
+                    if(split.Length >= 3)
+                    {
+
+                    }
+
+                    for (int i = 0; i < split.Length; i++)
+                    {
+                        if (split[i].Last() == ' ')
+                            split[i] = split[i].Remove(split[i].Length - 1);
+                    }
+
+                    string response = string.Concat(split.Skip(1).ToArray());
                     //Remove white space that was left when removing -
                     if (response.First() == ' ')
                         response = response.Remove(0, 1);

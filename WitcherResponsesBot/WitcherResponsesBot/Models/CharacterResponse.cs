@@ -11,6 +11,7 @@ namespace WitcherResponsesBot.Models
         public string Character { get; set; }
         public string Response { get; set; }
         public string Url { get; set; }
+        public uint UseCount { get; set; }
 
         public CharacterResponse(string character, string response, string url)
         {

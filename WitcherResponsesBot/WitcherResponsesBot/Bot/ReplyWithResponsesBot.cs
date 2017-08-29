@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using WitcherResponsesBot.Models;
 using WitcherResponsesBot.Services;
 using WitcherResponsesBot.Utility;
+using System.Timers;
 
 namespace WitcherResponsesBot.Bot
 {
@@ -34,14 +35,17 @@ namespace WitcherResponsesBot.Bot
         /// The type of comparison the bot should do when comparing comments to voice lines.
         /// </summary>
         CompareType m_compareType = CompareType.General;
+        System.Timers.Timer m_saveDataTimer = null;
+        string m_databaseFile;
 
         readonly int POST_LIMIT = 150;
 
-        public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits, string databaseFilePath = "")
+        public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits, bool shouldRecreate, string databaseFilePath = "")
         {
             m_botUsername = botUsername;
 
-            ConfigureDatabase(databaseFilePath);
+            m_databaseFile = databaseFilePath;
+            ConfigureDatabase(m_databaseFile, shouldRecreate);
             m_redditService = new RedditService(botUsername, botPassword, clientId, clientSecretId);
 
             //Configure subreddits to listen to
@@ -52,24 +56,56 @@ namespace WitcherResponsesBot.Bot
             }
 
             m_botStartTime = DateTime.UtcNow;
+
+            if (string.IsNullOrEmpty(m_databaseFile))
+            {
+                m_saveDataTimer = new System.Timers.Timer();
+                m_saveDataTimer.Interval = Constants.DATABASE_SAVE_MILLISECONDS;
+                m_saveDataTimer.Elapsed += OnSaveLatestDatabase;
+                m_saveDataTimer.Start();
+            }
+        }
+
+        void OnSaveLatestDatabase(object sender, ElapsedEventArgs e)
+        {
+            WriteDatabaseToFile(ResponsesDatabase.Responses, m_databaseFile);
+            Debug.LogImportant("Saved latest data to database");
         }
 
         /// <summary>
         /// Configures the database to load all responses from file or gather the data again
         /// </summary>
         /// <param name="filePath"></param>
-        void ConfigureDatabase(string filePath)
+        void ConfigureDatabase(string filePath, bool recreateDatabase)
         {
             if (filePath != "")
             {
-                if (File.Exists(filePath))
+                if(recreateDatabase)
                 {
-                    string json = File.ReadAllText(filePath);
-                    bool parsedSuccessfully = false;
+                    Debug.Log("Transfering old database data and recreating a new one");
+                    List<CharacterResponse> oldResponses = LoadResponsesFromFile(filePath);
+                    
+                    //Dont save to file
+                    PopulateDatabase("");
+                    foreach(CharacterResponse response in ResponsesDatabase.Responses)
+                    {
+                        var oldResponse = oldResponses.FirstOrDefault(x => x.Character == response.Character);
+                        if (oldResponse != null)
+                        {
+                            //Properties to transfer
+                            response.UseCount = oldResponse.UseCount;
+                        }
+                    }
 
+                    WriteDatabaseToFile(ResponsesDatabase.Responses, filePath);
+                    Debug.LogImportant("Successfully transferred old database data to new database");
+                }
+                else if(File.Exists(filePath))
+                {
+                    bool parsedSuccessfully = false;
                     try
                     {
-                        ResponsesDatabase.Responses = JsonConvert.DeserializeObject<List<CharacterResponse>>(json);
+                        ResponsesDatabase.Responses = LoadResponsesFromFile(filePath);
                         parsedSuccessfully = ResponsesDatabase.Responses != null && ResponsesDatabase.Responses.Count > 0;
 
                         Debug.Log($"Database file found. Using data from file {filePath}");
@@ -125,7 +161,7 @@ namespace WitcherResponsesBot.Bot
 
             GamepediaResponsesParser responsesParser = new GamepediaResponsesParser(Constants.CATEGORY);
             List<CharacterResponse> responses = responsesParser.Parse();
-
+            responses = responses.OrderBy(x => x.Character).ToList();
             Debug.LogImportant("Finished gathering responses.");
 
             //Set responses after parsing
@@ -384,9 +420,31 @@ namespace WitcherResponsesBot.Bot
 
             m_redditService.ReplyToComment(originalComment, reply);
             m_repliedToComments.Add(originalComment);
-            
+
+            response.UseCount++;
+
             //Sleep for one second after replying
             Thread.Sleep(1000);
+        }
+
+        /// <summary>
+        /// Loads previously saved database
+        /// </summary>
+        /// <param name="filePath">The old database file path</param>
+        /// <returns></returns>
+        List<CharacterResponse> LoadResponsesFromFile(string filePath)
+        {
+            try
+            {
+                string json = File.ReadAllText(filePath);
+                List<CharacterResponse> loadedDatabase = JsonConvert.DeserializeObject<List<CharacterResponse>>(json);
+                return loadedDatabase.OrderBy(x => x.Character).ToList();
+            }
+            catch(Exception e)
+            {
+                Debug.LogException("Unable to load existing database", e);
+            }
+            return null;
         }
     }
 }
