@@ -12,11 +12,6 @@ namespace WitcherResponsesBot
         public static readonly string MEDIA_URL = "media/gwent.gamepedia.com";
         public static readonly string CATEGORY = "Audio";
 
-        /// <summary>
-        /// Amount of seconds to sleep inbetween an update
-        /// </summary>
-        public static int SLEEP_SECONDS = 60;
-
         public static readonly List<string> EXCLUDE_PHRASES = new List<string>()
         {
             "Yes", "No", "Ok", "Okay", "Uh", "Grrr"

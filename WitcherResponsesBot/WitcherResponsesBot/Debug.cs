@@ -36,7 +36,9 @@ namespace WitcherResponsesBot
         public static void LogException(string message, Exception ex)
         {
             Console.ForegroundColor = m_errorColor;
-            Log($"{message} - {ex.Message}");
+            Log($"{message} - {ex.Message}" +
+                $"{Environment.NewLine}" +
+                $"{ex.StackTrace}");
             Console.ForegroundColor = m_defaultColor;
         }
 

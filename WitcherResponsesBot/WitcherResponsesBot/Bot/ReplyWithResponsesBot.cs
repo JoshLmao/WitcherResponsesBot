@@ -38,7 +38,7 @@ namespace WitcherResponsesBot.Bot
         System.Timers.Timer m_saveDataTimer = null;
         string m_databaseFile;
 
-        readonly int POST_LIMIT = 150;
+        readonly int POST_LIMIT = 75;
 
         public ReplyWithResponsesBot(string botUsername, string botPassword, string clientId, string clientSecretId, string[] subreddits, bool shouldRecreate, string databaseFilePath = "")
         {
@@ -191,27 +191,21 @@ namespace WitcherResponsesBot.Bot
         {
             Debug.LogImportant("Started Witcher ReplyToResponses bot");
 
-            while(true)
+            while (true)
             {
-                Debug.Log("Scanning New & Hot posts for responses");
+                Debug.LogImportant("Started Scanning...");
 
-                //Scan 'New' posts
+                Debug.Log("Scanning New posts...");
                 List<Post> newPosts = m_redditService.GetNewPosts(POST_LIMIT);
                 CheckPostsForResponses(newPosts);
 
-                //Scan 'Hot' posts
+                Debug.Log("Scanning Hot posts...");
                 List<Post> hotPosts = m_redditService.GetHotPosts(POST_LIMIT);
                 CheckPostsForResponses(hotPosts);
 
-                //Scan any stickied posts
-                List<Post> stickedPosts = m_redditService.GetStickiedPosts();
-                CheckPostsForResponses(stickedPosts);
-
-                //Sleep for x seconds
-                int seconds = Constants.SLEEP_SECONDS;
-                int sleepDuration = seconds * 1000;
-                Debug.LogImportant($"Idling for {seconds}...");
-                Thread.Sleep(sleepDuration);
+                //Debug.Log("Scanning Stickied posts...");
+                //List<Post> stickedPosts = m_redditService.GetStickiedPosts();
+                //CheckPostsForResponses(stickedPosts);
 
                 //Clear comments for next time
                 m_repliedToComments.Clear();
@@ -323,6 +317,8 @@ namespace WitcherResponsesBot.Bot
         {
             //Remove any ! and .
             string compareComment = GeneralString(comment.Body);
+            if (string.IsNullOrEmpty(compareComment))
+                return new KeyValuePair<bool, CharacterResponse>(false, null);
 
             List<CharacterResponse> matchingResponses = new List<CharacterResponse>();
             foreach (CharacterResponse response in ResponsesDatabase.Responses)
@@ -380,6 +376,9 @@ namespace WitcherResponsesBot.Bot
             //Allow comparison with certain markdown formatting
             comment = MessageModifier.RemoveMarkdownCharacters(comment);
 
+            if (string.IsNullOrEmpty(comment))
+                return comment;
+
             string[] specificChars = new string[] { ";)", ";(", ";)", ":(", ":D", ";D" };
             for (int i = 0; i < specificChars.Length; i++)
                 comment = comment.Replace(specificChars[i], "");
@@ -393,8 +392,13 @@ namespace WitcherResponsesBot.Bot
             comment = comment.Replace(",", "");
 
             comment = MessageModifier.RemoveUnicodeCharacters(comment);
+            if (string.IsNullOrEmpty(comment))
+                return comment;
+
             //Remove white space last
             comment = MessageModifier.RemoveWhiteSpaceAtStartAndEnd(comment);
+            if (string.IsNullOrEmpty(comment))
+                return comment;
 
             return comment.ToLower();
         }
@@ -422,9 +426,6 @@ namespace WitcherResponsesBot.Bot
             m_repliedToComments.Add(originalComment);
 
             response.UseCount++;
-
-            //Sleep for one second after replying
-            Thread.Sleep(1000);
         }
 
         /// <summary>

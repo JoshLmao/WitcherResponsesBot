@@ -16,6 +16,9 @@ namespace WitcherResponsesBot.Utility
         /// <returns></returns>
         public static string RemoveMarkdownCharacters(string message)
         {
+            if (string.IsNullOrEmpty(message))
+                return message;
+
             string[] formatting = new string[] { "*", "#", "^", ">", "&gt;" };
             for (int i = 0; i < formatting.Length; i++)
                 message = message.Replace(formatting[i], "");
@@ -29,6 +32,9 @@ namespace WitcherResponsesBot.Utility
         /// <returns></returns>
         public static string RemoveUnicodeCharacters(string message)
         {
+            if (string.IsNullOrEmpty(message))
+                return message;
+
             return Regex.Replace(message, @"[^\u0000-\u007F]+", string.Empty);
         }
 
@@ -39,15 +45,26 @@ namespace WitcherResponsesBot.Utility
         /// <returns></returns>
         public static string RemoveWhiteSpaceAtStartAndEnd(string message)
         {
-            while (message.First() == ' ')
+            if (string.IsNullOrEmpty(message))
+                return message;
+
+            while (!string.IsNullOrEmpty(message) && message.First() == ' ')
+            {
                 message = message.Remove(0, 1);
-            while (message.Last() == ' ')
+            }
+            while (!string.IsNullOrEmpty(message) && message.Last() == ' ')
+            {
                 message = message.Remove(message.Length - 1, 1);
+            }
+
             return message;
         }
 
         public static bool IsLastCharPunctuation(string message)
         {
+            if (string.IsNullOrEmpty(message))
+                return false;
+
             return char.IsPunctuation(message[message.Length - 1]);
         }
     }
